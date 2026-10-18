@@ -54,11 +54,13 @@ public class MainActivity extends Activity {
     private static final int PER_ROW = 6, MAX_INPUTS = 4;
 
     // Layout is designed at 1920x1080 and scaled to the TV's real UI size by px().
-    private static final int MARGIN = 96, GAP = 36, RADIUS = 22;
-    private static final int ROW1_TOP = 604, ROW2_TOP = 828;
+    private static final int MARGIN = 96, GAP = 33, RADIUS = 33;
+    private static final int ROW1_TOP = 672, PILL_TOP = 918, PILL_H = 78;
+    // Aurora palette
+    private static final int INK = 0xFFEEF1FF, MUTED = 0xFFAEB6D8;
     private float scale = 1f;
 
-    private static Typeface regular, semibold;
+    private static Typeface regular, semibold, light;
 
     private FrameLayout root;
     private final List<View> tiles = new ArrayList<>();
@@ -82,16 +84,19 @@ public class MainActivity extends Activity {
 
         LinearLayout clock = new LinearLayout(this);
         clock.setOrientation(LinearLayout.VERTICAL);
-        TextClock date = clock("EEEE, d MMMM", "EEEE, d MMMM", px(30), 0xA8FFFFFF, regular);
-        TextClock time = clock("h:mm", "H:mm", px(176), Color.WHITE, semibold);
-        time.setLetterSpacing(-0.028f);
+        clock.setGravity(Gravity.CENTER_HORIZONTAL);
+        TextClock time = clock("h:mm", "H:mm", px(198), INK, light);
+        time.setLetterSpacing(-0.02f);
         time.setFontFeatureSettings("tnum");
         time.setIncludeFontPadding(false);
-        clock.addView(date);
-        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-2, -2);
-        tp.topMargin = px(-20); // pull the big digits up under the date
-        clock.addView(time, tp);
-        root.addView(clock, at(px(MARGIN), px(92), -2, -2));
+        TextClock date = clock("EEEE, d 'de' MMMM", "EEEE, d 'de' MMMM", px(30), MUTED, regular);
+        clock.addView(time);
+        LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(-2, -2);
+        dp.topMargin = px(6);
+        clock.addView(date, dp);
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(-1, -2);
+        cp.topMargin = px(100);
+        root.addView(clock, cp);
 
         setContentView(root);
 
@@ -169,9 +174,9 @@ public class MainActivity extends Activity {
     // Static warm gradient, drawn once by the window: no extra view, no animation.
     private Drawable background() {
         GradientDrawable base = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[] {0xFF15100F, 0xFF0A0809, 0xFF050405});
-        GradientDrawable warm = radial(0x36FF8048, 0.08f, -0.12f, px(1250));
-        GradientDrawable plum = radial(0x2EAA3C8C, 1.0f, 1.1f, px(1000));
+                new int[] {0xFF0B0F21, 0xFF0A0D1C, 0xFF080A17});
+        GradientDrawable warm = radial(0x524E60E6, 0.12f, 0.0f, px(1350));
+        GradientDrawable plum = radial(0x422096A0, 1.0f, 1.0f, px(1200));
         for (GradientDrawable g : new GradientDrawable[] {base, warm, plum}) g.setDither(true);
         return new LayerDrawable(new Drawable[] {base, warm, plum});
     }
@@ -190,7 +195,7 @@ public class MainActivity extends Activity {
         tiles.clear();
 
         PackageManager pm = getPackageManager();
-        int m = px(MARGIN), g = px(GAP), top1 = px(ROW1_TOP), top2 = px(ROW2_TOP);
+        int m = px(MARGIN), g = px(GAP), top1 = px(ROW1_TOP);
         int w = (getResources().getDisplayMetrics().widthPixels - 2 * m - g * (PER_ROW - 1)) / PER_ROW;
         int h = w * 9 / 16;
 
@@ -213,12 +218,18 @@ public class MainActivity extends Activity {
             col++;
         }
 
-        col = 0;
+        LinearLayout pills = new LinearLayout(this);
+        pills.setOrientation(LinearLayout.HORIZONTAL);
+        pills.setGravity(Gravity.CENTER_HORIZONTAL);
+        pills.setClipChildren(false);
         if (!apps.contains(PLAY_STORE) && launchIntent(pm, PLAY_STORE) != null)
-            addTile(PLAY_STORE, "Play Store", null, LineIcon.PLAY, null, m + col++ * (w + g), top2, w, h);
+            addPill(pills, PLAY_STORE, "Play Store", LineIcon.PLAY);
         for (TvInputInfo in : hdmiInputs())
-            addTile(in.getId(), inputLabel(in), null, LineIcon.HDMI, null, m + col++ * (w + g), top2, w, h);
-        addTile(SETTINGS, "Settings", null, LineIcon.SETTINGS, null, m + col * (w + g), top2, w, h);
+            addPill(pills, in.getId(), inputLabel(in), LineIcon.HDMI);
+        addPill(pills, SETTINGS, settingsLabel(pm), LineIcon.SETTINGS);
+        FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(-1, px(PILL_H));
+        pp.topMargin = px(PILL_TOP);
+        root.addView(pills, pp);
 
         View restore = null;
         for (View t : tiles) if (t.getTag().equals(focusedKey)) restore = t;
@@ -230,15 +241,17 @@ public class MainActivity extends Activity {
         FrameLayout card = new FrameLayout(this);
         final GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(px(RADIUS));
+        final GradientDrawable ring = new GradientDrawable();
+        ring.setCornerRadius(px(RADIUS));
+        ring.setStroke(Math.max(1, px(2)), 0x24FFFFFF);
         if (banner != null) {
-            bg.setColor(0xFF1E1A1C);
+            bg.setColor(0x12FFFFFF);
             ImageView iv = new ImageView(this);
             iv.setImageDrawable(fit(banner, w, h));
             card.addView(iv, new FrameLayout.LayoutParams(-1, -1));
         } else {
             // Quiet "glass" tile: icon above label.
-            bg.setColor(0x13FFFFFF);
-            bg.setStroke(Math.max(1, px(2)), 0x17FFFFFF);
+            bg.setColor(0x12FFFFFF);
             LinearLayout inner = new LinearLayout(this);
             inner.setOrientation(LinearLayout.VERTICAL);
             inner.setGravity(Gravity.CENTER);
@@ -247,37 +260,30 @@ public class MainActivity extends Activity {
             if (lineIcon != null) iv.setImageDrawable(new LineIcon(lineIcon));
             else if (appIcon != null) iv.setImageDrawable(fit(appIcon, size, size));
             inner.addView(iv, new LinearLayout.LayoutParams(size, size));
-            TextView t = text(px(24), 0xE0FFFFFF, regular);
-            t.setText(label);
-            t.setSingleLine(true);
-            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            t.setGravity(Gravity.CENTER);
-            t.setPadding(px(16), 0, px(16), 0);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -2);
-            lp.topMargin = px(12);
-            inner.addView(t, lp);
             card.addView(inner, new FrameLayout.LayoutParams(-1, -1));
         }
         card.setBackground(bg);
+        card.setForeground(ring);
         card.setClipToOutline(true);
         card.setFocusable(true);
         card.setTag(key);
 
-        // Banner tiles show their name underneath when focused.
-        final TextView caption = banner == null ? null : text(px(24), Color.WHITE, regular);
-        if (caption != null) {
-            caption.setText(label);
-            caption.setGravity(Gravity.CENTER_HORIZONTAL);
-            caption.setVisibility(View.INVISIBLE);
-        }
+        // Every app shows its name underneath; the focused one turns white.
+        final TextView caption = text(px(24), MUTED, regular);
+        caption.setText(label);
+        caption.setSingleLine(true);
+        caption.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        caption.setGravity(Gravity.CENTER_HORIZONTAL);
 
         final boolean glass = banner == null;
         card.setOnFocusChangeListener((v, has) -> {
             if (has) focusedKey = key;
-            if (glass) bg.setColor(has ? 0x38FFFFFF : 0x13FFFFFF);
-            v.animate().scaleX(has ? 1.1f : 1f).scaleY(has ? 1.1f : 1f).translationZ(has ? px(26) : 0)
+            bg.setColor(has ? 0x2EFFFFFF : 0x12FFFFFF);
+            ring.setStroke(Math.max(1, px(has ? 3 : 2)), has ? 0xE6FFFFFF : 0x24FFFFFF);
+            v.animate().scaleX(has ? 1.12f : 1f).scaleY(has ? 1.12f : 1f).translationZ(has ? px(26) : 0)
                     .setDuration(140).withLayer().start();
-            if (caption != null) caption.setVisibility(has ? View.VISIBLE : View.INVISIBLE);
+            caption.setTextColor(has ? INK : MUTED);
+            caption.setTranslationY(has ? px(12) : 0);
         });
         card.setOnClickListener(v -> open(key));
         card.setOnKeyListener((v, code, ev) -> {
@@ -292,13 +298,60 @@ public class MainActivity extends Activity {
         FrameLayout wrap = new FrameLayout(this);
         wrap.setClipChildren(false);
         wrap.addView(card, new FrameLayout.LayoutParams(w, h));
-        if (caption != null) {
-            FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(w, -2);
-            cp.topMargin = h + px(22);
-            wrap.addView(caption, cp);
-        }
+        FrameLayout.LayoutParams cp = new FrameLayout.LayoutParams(w, -2);
+        cp.topMargin = h + px(21);
+        wrap.addView(caption, cp);
         root.addView(wrap, at(x, y, w, -2));
         tiles.add(card);
+    }
+
+    // A rounded "glass" pill: line icon + label, for Play Store, inputs and Settings.
+    private void addPill(LinearLayout row, final String key, String label, int[] lineIcon) {
+        LinearLayout pill = new LinearLayout(this);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setPadding(px(33), 0, px(33), 0);
+        final GradientDrawable bg = new GradientDrawable();
+        bg.setCornerRadius(px(PILL_H / 2));
+        bg.setColor(0x12FFFFFF);
+        bg.setStroke(Math.max(1, px(2)), 0x29FFFFFF);
+        pill.setBackground(bg);
+        ImageView iv = new ImageView(this);
+        iv.setImageDrawable(new LineIcon(lineIcon));
+        pill.addView(iv, new LinearLayout.LayoutParams(px(30), px(30)));
+        TextView t = text(px(26), INK, regular);
+        t.setText(label);
+        t.setSingleLine(true);
+        LinearLayout.LayoutParams tl = new LinearLayout.LayoutParams(-2, -2);
+        tl.leftMargin = px(15);
+        pill.addView(t, tl);
+        pill.setFocusable(true);
+        pill.setTag(key);
+        pill.setOnFocusChangeListener((v, has) -> {
+            if (has) focusedKey = key;
+            bg.setColor(has ? 0x38FFFFFF : 0x12FFFFFF);
+            bg.setStroke(Math.max(1, px(has ? 3 : 2)), has ? 0xE6FFFFFF : 0x29FFFFFF);
+            v.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(140).withLayer().start();
+        });
+        pill.setOnClickListener(v -> open(key));
+        pill.setOnKeyListener((v, code, ev) -> {
+            if (ev.getAction() == KeyEvent.ACTION_UP && (code == KeyEvent.KEYCODE_DPAD_CENTER
+                    || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                open(key);
+                return true;
+            }
+            return false;
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-2, -1);
+        lp.leftMargin = lp.rightMargin = px(10);
+        row.addView(pill, lp);
+        tiles.add(pill);
+    }
+
+    // The Settings app's own name, so it follows the TV's language ("Configurações" in Portuguese).
+    private static String settingsLabel(PackageManager pm) {
+        try { return pm.getApplicationLabel(pm.getApplicationInfo("com.android.tv.settings", 0)).toString(); }
+        catch (Exception e) { return "Settings"; }
     }
 
     private void open(String key) {
@@ -352,6 +405,7 @@ public class MainActivity extends Activity {
         if (regular != null) return;
         regular = fromFile("/system/fonts/MILanPro_Normal.ttf", Typeface.create("sans-serif", Typeface.NORMAL));
         semibold = fromFile("/system/fonts/MILanPro_SemiBold.ttf", Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        light = Typeface.create("sans-serif-light", Typeface.NORMAL);
     }
 
     private static Typeface fromFile(String path, Typeface fallback) {
